@@ -251,5 +251,95 @@ def _parse_api_coords(store: dict) -> tuple[Optional[float], Optional[float]]:
             pass
     return None, None
 
+def check_stores_match(features: list) -> dict:
+    errors = []
+
+    try:
+        resp = requests.get(STORES_API_URL, timeout=15)
+        resp.raise_for_status()
+        raw = resp.json()
+    except Exception as exc:
+        return _fail(
+            "Набор фичей соответствует магазинам из API",
+            [f"Не удалось получить данные API ({STORES_API_URL}): {exc}"],
+        )
+
+    stores: list = (
+        raw if isinstance(raw, list)
+        else raw.get("stores") or raw.get("data") or raw.get("items") or []
+    )
+
+    points = {
+        point_name(f): f for f in features
+        if (f.get("geometry") or {}).get("type") == "Point"
+        and POINT_NAME_RE.match(point_name(f) or "")
+    }
+    polys = {
+        polygon_name(f): f for f in features
+        if (f.get("geometry") or {}).get("type") == "Polygon"
+        and POLYGON_NAME_RE.match(polygon_name(f) or "")
+    }
+
+    api_poly_names: set[str] = set()
+
+    for store in stores:
+        sid = store.get("id")
+        if sid is None:
+            continue
+
+        poly_name_str = str(sid)          # "31001"
+        pt_name_str = expected_point(poly_name_str)   # "V001"
+        api_poly_names.add(poly_name_str)
+
+        store_label = store.get("nickname_native") or store.get("name") or sid
+
+        if poly_name_str not in polys:
+            errors.append(
+                f"Магазин #{sid} ('{store_label}') отсутствует как Polygon '{poly_name_str}'"
+            )
+
+        if pt_name_str not in points:
+            errors.append(
+                f"Магазин #{sid} ('{store_label}') отсутствует как Point '{pt_name_str}'"
+            )
+            continue
+
+        api_lat, api_lng = _parse_api_coords(store)
+        if api_lat is None or api_lng is None:
+            continue
+
+        c = points[pt_name_str]["geometry"]["coordinates"]
+        geojson_lng, geojson_lat = c[0], c[1]
+
+        if (
+            abs(api_lat - geojson_lat) > COORD_TOLERANCE
+            or abs(api_lng - geojson_lng) > COORD_TOLERANCE
+        ):
+            errors.append(
+                f"Point '{pt_name_str}': расхождение координат — "
+                f"GeoJSON=({geojson_lng:.6f}, {geojson_lat:.6f}), "
+                f"API=({api_lng:.6f}, {api_lat:.6f})"
+            )
+
+    for pln in polys:
+        if pln not in api_poly_names:
+            errors.append(f"Polygon '{pln}' не соответствует ни одному магазину в API")
+    for ptn in points:
+        exp_poly = expected_polygon(ptn)
+        if exp_poly not in api_poly_names:
+            errors.append(f"Point '{ptn}' не соответствует ни одному магазину в API")
+
+    result = _result(
+        "Набор фичей соответствует магазинам из API (включая координаты)",
+        errors,
+    )
+    result["meta"] = {
+        "api_url": STORES_API_URL,               # URL источника данных магазинов
+        "api_store_count": len(stores),          # кол-во магазинов в API
+        "geojson_point_count": len(points),      # кол-во Point в файле
+        "geojson_polygon_count": len(polys),     # кол-во Polygon в файле
+    }
+    return result
+
 if __name__ == "__main__":
     main()
