@@ -374,5 +374,50 @@ def validate(geojson: dict) -> dict:
         "checks": checks,            # детали каждой проверки
     }
 
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Валидатор GeoJSON для магазинов fix-uzb.com"
+    )
+    parser.add_argument(
+        "input",
+        nargs="?",
+        help="Путь к GeoJSON файлу (если не указан — читается из stdin)",
+    )
+    parser.add_argument(
+        "-o", "--output",
+        help="Путь для записи результата JSON (если не указан — выводится в stdout)",
+    )
+    parser.add_argument("--indent", type=int, default=2, help="Отступ в JSON (по умолчанию 2)")
+    args = parser.parse_args()
+
+    try:
+        if args.input:
+            with open(args.input, encoding="utf-8") as fh:
+                geojson = json.load(fh)
+        else:
+            geojson = json.load(sys.stdin)
+    except FileNotFoundError:
+        sys.exit(f"Файл не найден: {args.input}")
+    except json.JSONDecodeError as exc:
+        out = json.dumps(
+            {"valid": False, "fatal": f"Некорректный JSON: {exc}"},
+            ensure_ascii=False,
+            indent=args.indent,
+        )
+        print(out)
+        sys.exit(1)
+
+    result = validate(geojson)
+    output = json.dumps(result, ensure_ascii=False, indent=args.indent)
+
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as fh:
+            fh.write(output)
+        print(f"Результат записан в {args.output}")
+    else:
+        print(output)
+
+    sys.exit(0 if result["valid"] else 1)
+
 if __name__ == "__main__":
     main()
