@@ -341,5 +341,38 @@ def check_stores_match(features: list) -> dict:
     }
     return result
 
+def validate(geojson: dict) -> dict:
+    if geojson.get("type") != "FeatureCollection":
+        return {
+            "valid": False,          # файл невалиден
+            "fatal": "Входной файл не является GeoJSON FeatureCollection",  # причина критической ошибки
+            "summary": {},           # нет данных (файл не разобран)
+            "checks": {},            # проверки не выполнялись
+        }
+
+    features = geojson.get("features") or []
+
+    checks = {
+        "feature_types": check_feature_types(features),             # типы и имена фич
+        "point_polygon_pairs": check_point_polygon_pairs(features),  # парность Point↔Polygon
+        "closed_polygons": check_closed_polygons(features),          # замкнутость полигонов
+        "points_inside_polygons": check_points_inside_polygons(features),  # точка внутри полигона
+        "stores_match": check_stores_match(features),                # соответствие API магазинов
+    }
+
+    passed = sum(1 for c in checks.values() if c["passed"])
+    total = len(checks)
+
+    return {
+        "valid": passed == total,    # true если все проверки пройдены
+        "summary": {
+            "feature_count": len(features),   # всего фич в файле
+            "checks_total": total,            # всего проверок
+            "checks_passed": passed,          # пройдено проверок
+            "checks_failed": total - passed,  # не пройдено проверок
+        },
+        "checks": checks,            # детали каждой проверки
+    }
+
 if __name__ == "__main__":
     main()
