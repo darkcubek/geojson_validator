@@ -29,5 +29,22 @@ parser.add_argument(
 parser.add_argument("--indent", type=int, default=2, help="Отступ в JSON (по умолчанию 2)")
 args = parser.parse_args()
 
+try:
+    if args.input:
+        with open(args.input, encoding="utf-8") as fh:
+            geojson = json.load(fh)
+    else:
+        geojson = json.load(sys.stdin)
+except FileNotFoundError:
+    sys.exit(f"Файл не найден: {args.input}")
+except json.JSONDecodeError as exc:
+    out = json.dumps(
+        {"valid": False, "fatal": f"Некорректный JSON: {exc}"},
+        ensure_ascii=False,
+        indent=args.indent,
+    )
+    print(out)
+    sys.exit(1)
+
 if __name__ == "__main__":
     main()
