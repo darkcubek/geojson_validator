@@ -146,5 +146,34 @@ def check_feature_types(features: list) -> dict:
         errors,
     )
 
+def check_point_polygon_pairs(features: list) -> dict:
+    """Each Point V### must have a corresponding Polygon 31###, and vice versa."""
+    errors = []
+    points = {
+        point_name(f): f for f in features
+        if (f.get("geometry") or {}).get("type") == "Point"
+        and POINT_NAME_RE.match(point_name(f) or "")
+    }
+    polys = {
+        polygon_name(f): f for f in features
+        if (f.get("geometry") or {}).get("type") == "Polygon"
+        and POLYGON_NAME_RE.match(polygon_name(f) or "")
+    }
+
+    for pn in points:
+        exp = expected_polygon(pn)
+        if exp not in polys:
+            errors.append(f"Point '{pn}' не имеет соответствующего Polygon '{exp}'")
+
+    for pln in polys:
+        exp = expected_point(pln)
+        if exp not in points:
+            errors.append(f"Polygon '{pln}' не имеет соответствующего Point '{exp}'")
+
+    return _result(
+        "Каждый Point V### должен иметь Polygon 31### и наоборот",
+        errors,
+    )
+
 if __name__ == "__main__":
     main()
