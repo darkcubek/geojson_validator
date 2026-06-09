@@ -233,5 +233,23 @@ def check_points_inside_polygons(features: list) -> dict:
         errors,
     )
 
+def _parse_api_coords(store: dict) -> tuple[Optional[float], Optional[float]]:
+    raw = store.get("coordinates")
+    if raw and isinstance(raw, str):
+        parts = [p.strip() for p in raw.split(",")]
+        if len(parts) == 2:
+            try:
+                return float(parts[0]), float(parts[1])
+            except ValueError:
+                pass
+    lat = store.get("lat") or store.get("latitude")
+    lng = store.get("lng") or store.get("lon") or store.get("longitude")
+    if lat is not None and lng is not None:
+        try:
+            return float(lat), float(lng)
+        except ValueError:
+            pass
+    return None, None
+
 if __name__ == "__main__":
     main()
