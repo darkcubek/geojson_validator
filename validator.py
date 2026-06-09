@@ -97,5 +97,54 @@ def expected_polygon(pt_name):
 def expected_point(poly_name):
     return "V" + poly_name[2:]
 
+def _ok(description: str) -> dict:
+    return {
+        "passed": True,              # проверка пройдена
+        "description": description,  # суть проверки
+        "errors": [],                # список ошибок (пуст)
+    }
+
+
+def _fail(description: str, errors: list) -> dict:
+    return {
+        "passed": False,             # проверка не пройдена
+        "description": description,  # суть проверки
+        "errors": errors,            # список найденных ошибок
+    }
+
+
+def _result(description: str, errors: list) -> dict:
+    return _ok(description) if not errors else _fail(description, errors)
+
+
+def check_feature_types(features: list) -> dict:
+    errors = []
+    for i, f in enumerate(features):
+        geom = f.get("geometry") or {}
+        t = geom.get("type")
+        if t == "Point":
+            n = point_name(f)
+            if not n or not POINT_NAME_RE.match(n):
+                errors.append(
+                    f"Feature[{i}]: Point с недопустимым именем '{n}' "
+                    "(ожидается V000–V999 в поле iconCaption)"
+                )
+        elif t == "Polygon":
+            n = polygon_name(f)
+            if not n or not POLYGON_NAME_RE.match(n):
+                errors.append(
+                    f"Feature[{i}]: Polygon с недопустимым именем '{n}' "
+                    "(ожидается 5-значный номер в поле description)"
+                )
+        else:
+            n = feature_name(f)
+            errors.append(
+                f"Feature[{i}]: недопустимый тип геометрии '{t}' (имя: '{n}')"
+            )
+    return _result(
+        "Только Point(V###) и Polygon(5 цифр) допустимы в файле",
+        errors,
+    )
+
 if __name__ == "__main__":
     main()
