@@ -175,5 +175,24 @@ def check_point_polygon_pairs(features: list) -> dict:
         errors,
     )
 
+def check_closed_polygons(features: list) -> dict:
+    """First and last coordinate of every ring must be identical."""
+    errors = []
+    for f in features:
+        if (f.get("geometry") or {}).get("type") != "Polygon":
+            continue
+        n = polygon_name(f)
+        rings = f["geometry"].get("coordinates") or []
+        for ri, ring in enumerate(rings):
+            ring_label = f"Polygon '{n}' кольцо #{ri}"
+            if len(ring) < 4:
+                errors.append(f"{ring_label}: слишком мало точек ({len(ring)}, минимум 4)")
+            elif ring[0] != ring[-1]:
+                errors.append(
+                    f"{ring_label}: не замкнуто — "
+                    f"первая={ring[0]}, последняя={ring[-1]}"
+                )
+    return _result("Все полигоны должны быть замкнуты", errors)
+
 if __name__ == "__main__":
     main()
