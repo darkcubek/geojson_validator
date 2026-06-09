@@ -194,5 +194,44 @@ def check_closed_polygons(features: list) -> dict:
                 )
     return _result("Все полигоны должны быть замкнуты", errors)
 
+
+def check_points_inside_polygons(features: list) -> dict:
+    """Each Point V### must be spatially contained in Polygon 31###."""
+    errors = []
+    points = {
+        point_name(f): f for f in features
+        if (f.get("geometry") or {}).get("type") == "Point"
+        and POINT_NAME_RE.match(point_name(f) or "")
+    }
+    polys = {
+        polygon_name(f): f for f in features
+        if (f.get("geometry") or {}).get("type") == "Polygon"
+        and POLYGON_NAME_RE.match(polygon_name(f) or "")
+    }
+
+    for pn, pf in points.items():
+        poly_name_str = expected_polygon(pn)
+        if poly_name_str not in polys:
+            continue
+
+        try:
+            pt_geom = shape(pf["geometry"])
+            pg_geom = make_valid(shape(polys[poly_name_str]["geometry"]))
+            if not pg_geom.contains(pt_geom):
+                c = pf["geometry"]["coordinates"]
+                errors.append(
+                    f"Point '{pn}' ({c[0]:.6f}, {c[1]:.6f}) "
+                    f"не находится внутри Polygon '{poly_name_str}'"
+                )
+        except Exception as exc:
+            errors.append(
+                f"Ошибка при проверке '{pn}' в '{poly_name_str}': {exc}"
+            )
+
+    return _result(
+        "Каждый Point V### должен находиться внутри Polygon 31###",
+        errors,
+    )
+
 if __name__ == "__main__":
     main()
