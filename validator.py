@@ -14,67 +14,6 @@ POINT_NAME_RE = re.compile(r"^V\d{3}$")
 POLYGON_NAME_RE = re.compile(r"^\d{5}$")
 COORD_TOLERANCE = 0.001 
 
-parser = argparse.ArgumentParser(
-    description="Валидатор GeoJSON для магазинов fix-uzb.com"
-)
-parser.add_argument(
-    "input",
-    nargs="?",
-    help="Путь к GeoJSON файлу (если не указан — читается из stdin)",
-)
-parser.add_argument(
-    "-o", "--output",
-    help="Путь для записи результата JSON (если не указан — выводится в stdout)",
-)
-parser.add_argument("--indent", type=int, default=2, help="Отступ в JSON (по умолчанию 2)")
-args = parser.parse_args()
-
-try:
-    if args.input:
-        with open(args.input, encoding="utf-8") as fh:
-            geojson = json.load(fh)
-    else:
-        geojson = json.load(sys.stdin)
-except FileNotFoundError:
-    sys.exit(f"Файл не найден: {args.input}")
-except json.JSONDecodeError as exc:
-    out = json.dumps(
-        {"valid": False, "fatal": f"Некорректный JSON: {exc}"},
-        ensure_ascii=False,
-        indent=args.indent,
-    )
-    print(out)
-    sys.exit(1)
-
-try:
-    if args.input:
-        with open(args.input, encoding="utf-8") as fh:
-            geojson = json.load(fh)
-    else:
-        geojson = json.load(sys.stdin)
-except FileNotFoundError:
-    sys.exit(f"Файл не найден: {args.input}")
-except json.JSONDecodeError as exc:
-    out = json.dumps(
-        {"valid": False, "fatal": f"Некорректный JSON: {exc}"},
-        ensure_ascii=False,
-        indent=args.indent,
-    )
-    print(out)
-    sys.exit(1)
-
-if geojson.get("type") != "FeatureCollection":
-    result = {
-        "valid": False,
-        "fatal": "Входной файл не является GeoJSON FeatureCollection",
-        "summary": {},
-        "checks": {},
-    }
-    print(json.dumps(result, ensure_ascii=False, indent=args.indent))
-    sys.exit(1)
-
-features = geojson.get("features") or []
-
 def point_name(feature):
     props = feature.get("properties") or {}
     return props.get("iconCaption") or props.get("name") or props.get("Name")
