@@ -1,4 +1,4 @@
-from validator import check_point_polygon_pairs
+from validator import check_feature_types, check_point_polygon_pairs
 
 
 def point(name: str) -> dict:
@@ -26,6 +26,50 @@ def polygon(name: str) -> dict:
         },
         "properties": {"description": name},
     }
+
+
+def feature(geometry_type: str, properties: dict | None = None) -> dict:
+    return {
+        "type": "Feature",
+        "geometry": {"type": geometry_type, "coordinates": []},
+        "properties": properties or {},
+    }
+
+
+def test_check_feature_types_passes_for_valid_point_and_polygon():
+    result = check_feature_types([point("V001"), polygon("31001")])
+
+    assert result["passed"] is True
+    assert result["errors"] == []
+
+
+def test_check_feature_types_reports_invalid_point_name():
+    result = check_feature_types([point("001")])
+
+    assert result["passed"] is False
+    assert result["errors"] == [
+        "Feature[0]: Point с недопустимым именем '001' "
+        "(ожидается V000–V999 в поле iconCaption)"
+    ]
+
+
+def test_check_feature_types_reports_invalid_polygon_name():
+    result = check_feature_types([polygon("3101")])
+
+    assert result["passed"] is False
+    assert result["errors"] == [
+        "Feature[0]: Polygon с недопустимым именем '3101' "
+        "(ожидается 5-значный номер в поле description)"
+    ]
+
+
+def test_check_feature_types_reports_unsupported_geometry_type():
+    result = check_feature_types([feature("LineString", {"name": "V001"})])
+
+    assert result["passed"] is False
+    assert result["errors"] == [
+        "Feature[0]: недопустимый тип геометрии 'LineString' (имя: 'None')"
+    ]
 
 
 def test_check_point_polygon_pairs_passes_for_matching_pair():
